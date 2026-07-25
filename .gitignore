@@ -1,0 +1,5 @@
+.env
+channels.json
+__pycache__/
+*.pyc
+test_tmp/

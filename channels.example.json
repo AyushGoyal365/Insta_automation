@@ -1,0 +1,8 @@
+[
+  {
+    "folder": "YourChannelFolderName",
+    "ig_user_id": "your-instagram-business-account-id",
+    "access_token": "your-instagram-access-token",
+    "default_caption": "default caption for this channel"
+  }
+]
