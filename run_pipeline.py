@@ -3,11 +3,15 @@ Full pipeline: edit every not-yet-edited raw video for every channel, then post
 one not-yet-posted processed video per channel to Instagram.
 
 Channel config (IG account -> R2 folder mapping): channels.json
-    [{"folder": "...", "ig_user_id": "...", "access_token": "...", "default_caption": "..."}]
+    [{"folder": "...", "ig_user_id": "...", "access_token": "...", "captions": ["...", "..."]}]
 
 Per-video caption override (optional): Raw/Video/{date}/{video_name}.txt
-    If present, its contents are used as the caption instead of the channel's
-    default_caption.
+    If present, its contents are used as the caption instead of a random pick
+    from the channel's captions list.
+
+Trailing #hashtags in a caption are posted as a follow-up comment rather than
+left in the caption itself -- Instagram's Reels API doesn't reliably render
+hashtags in API-submitted captions as clickable, but hashtags in comments do.
 
 Upload log: channel_logs/{folder}/{date}/{video_name}.done (skip if exists)
 
@@ -19,9 +23,13 @@ Requires ffmpeg installed on the machine (see video_editor.py).
 
 import json
 import os
+import random
+import re
 
-from auto_insta_upload import publish_reel
+from auto_insta_upload import comment_on_media, publish_reel
 from video_editor import BUCKET, VIDEO_EXTS, key_exists, list_keys, run as edit_all_pending, s3, touch_key
+
+TRAILING_HASHTAGS = re.compile(r"(?:\s*#\w+)+\s*$")
 
 R2_PUBLIC_BASE = os.environ.get("R2_PUBLIC_BASE", "https://pub-5752715fe717427c9a1a247ec15b3165.r2.dev")
 CHANNELS_CONFIG = os.path.join(os.path.dirname(os.path.abspath(__file__)), "channels.json")
@@ -51,14 +59,25 @@ def find_unposted_video(folder: str) -> tuple[str, str] | None:
     return None
 
 
-def get_caption(day: str, video_name: str, default_caption: str) -> str:
-    """Use Raw/Video/{day}/{video_name}.txt as the caption if present, else the channel default."""
+def get_caption(day: str, video_name: str, captions: list[str]) -> str:
+    """Use Raw/Video/{day}/{video_name}.txt as the caption if present, else a random pick from captions."""
     caption_key = f"Raw/Video/{day}/{video_name}.txt"
     try:
         obj = s3.get_object(Bucket=BUCKET, Key=caption_key)
         return obj["Body"].read().decode("utf-8").strip()
     except s3.exceptions.ClientError:
-        return default_caption
+        return random.choice(captions) if captions else ""
+
+
+def split_hashtags(caption: str) -> tuple[str, str]:
+    """Split a trailing block of #hashtags off the end of a caption.
+
+    Returns (body, hashtags). hashtags is "" if the caption has none at the end.
+    """
+    match = TRAILING_HASHTAGS.search(caption)
+    if not match:
+        return caption, ""
+    return caption[: match.start()].rstrip(), caption[match.start():].strip()
 
 
 def post_pending(channels: list[dict]) -> None:
@@ -71,13 +90,21 @@ def post_pending(channels: list[dict]) -> None:
 
         day, video_name = found
         video_url = f"{R2_PUBLIC_BASE}/processed/{folder}/{day}/{video_name}.mp4"
-        caption = get_caption(day, video_name, ch.get("default_caption", ""))
+        caption = get_caption(day, video_name, ch.get("captions", []))
+        caption_body, hashtags = split_hashtags(caption)
         print(f"{folder}: posting {video_name} ({day}) ...")
         try:
-            media_id = publish_reel(ch["ig_user_id"], ch["access_token"], video_url, caption)
+            media_id = publish_reel(ch["ig_user_id"], ch["access_token"], video_url, caption_body)
         except RuntimeError as e:
             print(f"{folder}: POST FAILED: {e}")
             continue
+
+        if hashtags:
+            try:
+                comment_on_media(media_id, ch["access_token"], hashtags)
+                print(f"{folder}: hashtags posted as a comment")
+            except RuntimeError as e:
+                print(f"{folder}: hashtag comment failed (post itself still succeeded): {e}")
 
         touch_key(f"channel_logs/{folder}/{day}/{video_name}.done")
         print(f"{folder}: posted -> media_id {media_id}")

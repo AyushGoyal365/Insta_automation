@@ -82,6 +82,19 @@ def publish(container_id: str, ig_user_id: str, access_token: str) -> str:
     return body["id"]
 
 
+def comment_on_media(media_id: str, access_token: str, message: str) -> str:
+    """Post a comment (e.g. hashtags) on a published media. Returns the comment id."""
+    r = requests.post(
+        f"{API}/{media_id}/comments",
+        data={"message": message, "access_token": access_token},
+        timeout=30,
+    )
+    body = r.json()
+    if "id" not in body:
+        raise RuntimeError(f"Comment failed: {body}")
+    return body["id"]
+
+
 def publish_reel(ig_user_id: str, access_token: str, video_url: str, caption: str) -> str:
     """Run all three steps. Returns the published media id. Raises RuntimeError on failure."""
     container_id = create_container(ig_user_id, access_token, video_url, caption)
