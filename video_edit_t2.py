@@ -16,10 +16,16 @@ Outputs written:
 State kept in-bucket:
     t2_state/hook_index/{category}.txt       <- round-robin cursor per hook category
 
+Each run edits at most DEFAULT_EDIT_LIMIT (20) videos, so one invocation --
+local, scheduled, or a manual workflow_dispatch -- can't accidentally chew
+through the whole raw backlog. Override with the T2_MAX_EDITS env var or an
+explicit `limit` arg for a deliberately larger batch.
+
 Usage:
     pip install boto3 Pillow imagehash numpy pyyaml
-    Set the env vars below, then:  python video_edit_t2.py             (processes every date found)
-                                   python video_edit_t2.py 2026-07-21  (specific date only)
+    Set the env vars below, then:  python video_edit_t2.py                    (every date, up to 20 edits)
+                                   python video_edit_t2.py 2026-07-21         (one date, up to 20 edits)
+                                   python video_edit_t2.py 2026-07-21 50      (one date, up to 50 edits)
 Requires ffmpeg (with fontconfig/freetype) installed on the machine.
 """
 
@@ -50,6 +56,7 @@ BUCKET = os.environ.get("R2_BUCKET_T2", "reel-dump-b2")  # default bucket name
 # -----------------------------------------------------------------------------------------------------------
 
 VIDEO_EXTS = (".mp4", ".mov", ".mkv", ".webm", ".m4v")
+DEFAULT_EDIT_LIMIT = 20  # per-run cap on (video, channel) edits; see run()
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_CONFIG_PATH = os.path.join(BASE_DIR, "t2_config.json")
@@ -742,10 +749,11 @@ def load_channels_t2() -> list[dict]:
 def run(day: str | None = None, limit: int | None = None) -> None:
     """Edit not-yet-edited raw videos, for every T2 channel.
 
-    `limit` caps how many (video, channel) edits this call performs -- useful
-    for a small test batch before letting a run touch everything pending.
-    Falls back to the T2_MAX_EDITS env var when not passed explicitly (so
-    run_pipeline_t2.py's edit_all_pending() can be capped without code changes).
+    `limit` caps how many (video, channel) edits this call performs. Defaults
+    to DEFAULT_EDIT_LIMIT (20) so a single run -- local, scheduled, or a manual
+    workflow_dispatch -- can never accidentally chew through the entire raw
+    backlog (and its Actions minutes) in one go; the T2_MAX_EDITS env var or
+    an explicit `limit` overrides it for a deliberately larger batch.
     """
     channels = load_channels_t2()
     if not channels:
@@ -754,7 +762,7 @@ def run(day: str | None = None, limit: int | None = None) -> None:
 
     if limit is None:
         env_limit = os.environ.get("T2_MAX_EDITS")
-        limit = int(env_limit) if env_limit else None
+        limit = int(env_limit) if env_limit else DEFAULT_EDIT_LIMIT
 
     defaults = load_default_config()
     hooks_by_category = load_hooks()
