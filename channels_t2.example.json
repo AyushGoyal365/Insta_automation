@@ -1,0 +1,13 @@
+[
+  {
+    "folder": "YourChannelFolderName",
+    "ig_user_id": "your-instagram-business-account-id",
+    "access_token": "your-instagram-access-token",
+    "hook_category": "pattern_interrupt",
+    "config_overrides": {},
+    "captions": [
+      "first possible caption",
+      "second possible caption"
+    ]
+  }
+]

@@ -1,5 +1,6 @@
 .env
 channels.json
+channels_t2.json
 __pycache__/
 *.pyc
 test_tmp/

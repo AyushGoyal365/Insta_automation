@@ -1,0 +1,47 @@
+{
+  "enable_normalize": true,
+  "enable_trim": true,
+  "enable_hook_text": true,
+  "enable_punch_in": true,
+  "enable_seamless_loop": true,
+  "enable_audio_normalize": true,
+  "mute_audio": false,
+
+  "target_min_s": 12,
+  "target_max_s": 18,
+  "hook_start_offset_s": 0,
+
+  "max_source_fps": 30,
+
+  "hook_category": "pattern_interrupt",
+  "hook_font_path": "fonts/hook_font.ttf",
+  "hook_font_size": 64,
+  "hook_max_words": 6,
+  "hook_max_lines": 2,
+  "hook_max_width_ratio": 0.9,
+  "hook_y_ratio": 0.18,
+  "hook_end_s": 2.5,
+
+  "punch_cut_interval_min_s": 2.0,
+  "punch_cut_interval_max_s": 3.0,
+  "punch_first_cut_min_s": 1.0,
+  "punch_first_cut_max_s": 1.5,
+  "punch_zoom_min": 1.25,
+  "punch_zoom_max": 1.35,
+
+  "loop_tail_window_s": 4.0,
+  "loop_sample_interval_s": 0.1,
+  "loop_similarity_threshold": 10,
+  "loop_crossfade_s": 0.4,
+
+  "loudnorm_target_i": -14,
+  "loudnorm_target_tp": -1.5,
+  "loudnorm_target_lra": 11,
+
+  "video_preset": "slow",
+  "video_crf": 18,
+  "video_max_bitrate_m": 12,
+
+  "audio_bitrate_k": 128,
+  "audio_sample_rate": 48000
+}

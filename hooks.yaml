@@ -1,0 +1,34 @@
+# Hook strings for the video_edit_t2 pipeline (reel-dump-b2).
+#
+# Grouped by category so hooks can be A/B tested against each other -- each
+# channel in channels_t2.json picks one category via "hook_category", and
+# video_edit_t2.py round-robins through that category's list so every hook
+# gets used evenly within a batch. The chosen hook + category is recorded in
+# the per-video manifest for correlating with retention data later.
+#
+# Keep each hook <= 6 words -- video_edit_t2.py will auto-wrap/shrink to fit,
+# but short hooks read best on a phone.
+
+pattern_interrupt:
+  - "wait for it"
+  - "stop scrolling for this"
+  - "nobody is ready for this"
+  - "this should not have worked"
+  - "watch what happens next"
+  - "this broke the internet"
+
+curiosity_gap:
+  - "the ending is not what you think"
+  - "you will miss this if you blink"
+  - "there is a twist at the end"
+  - "keep watching, it gets worse"
+  - "this took a turn nobody expected"
+  - "the last 3 seconds explain everything"
+
+direct_question:
+  - "would you have done this"
+  - "have you ever seen this before"
+  - "can you guess what happens next"
+  - "would this work for you too"
+  - "why does nobody talk about this"
+  - "is this the craziest thing today"
