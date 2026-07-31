@@ -20,7 +20,7 @@ Trailing #hashtags in a caption are posted as a follow-up comment rather than
 left in the caption itself -- Instagram's Reels API doesn't reliably render
 hashtags in API-submitted captions as clickable, but hashtags in comments do.
 
-Upload log: video_logs/{folder}/{date}/{video_name}.done (skip if exists)
+Upload log: channel_logs/{folder}/{date}/{video_name}.done (skip if exists)
 
 Usage:
     pip install boto3 requests Pillow imagehash numpy pyyaml
@@ -61,7 +61,10 @@ def find_unposted_video(folder: str) -> tuple[str, str] | None:
             continue
         day, filename = parts[2], parts[3]
         video_name = os.path.splitext(filename)[0]
-        if not key_exists(f"video_logs/{folder}/{day}/{video_name}.done"):
+        # channel_logs (post-done), not video_logs (edit-done, set by video_edit_t2.py) --
+        # sharing one prefix would make every video look "already posted" the instant
+        # it's edited, since mark_done() sets that same key during the edit pass.
+        if not key_exists(f"channel_logs/{folder}/{day}/{video_name}.done"):
             return day, video_name
     return None
 
@@ -113,7 +116,7 @@ def post_pending(channels: list[dict]) -> None:
             except RuntimeError as e:
                 print(f"{folder}: hashtag comment failed (post itself still succeeded): {e}")
 
-        touch_key(f"video_logs/{folder}/{day}/{video_name}.done")
+        touch_key(f"channel_logs/{folder}/{day}/{video_name}.done")
         print(f"{folder}: posted -> media_id {media_id}")
 
 

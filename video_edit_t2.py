@@ -676,17 +676,27 @@ def edit_video(raw_path: str, out_path: str, cfg: dict, video_name: str,
     return manifest
 
 
-def edit_day(day: str, channels: list[dict], defaults: dict, hooks_by_category: dict, tmp: str) -> None:
+def edit_day(day: str, channels: list[dict], defaults: dict, hooks_by_category: dict, tmp: str,
+             remaining: int | None = None) -> int:
+    """Edit pending videos for `day`. Stops early once `remaining` edits have been done.
+
+    Returns how many (video, channel) edits were actually performed.
+    """
     videos = get_raw_videos(day)
     print(f"Date: {day} | channels: {[c['folder'] for c in channels]} | raw videos: {len(videos)}")
     if not videos:
-        return
+        return 0
 
+    done_count = 0
     for vkey in videos:
+        if remaining is not None and done_count >= remaining:
+            break
         video_name = os.path.splitext(os.path.basename(vkey))[0]
         local_raw = None
 
         for channel in channels:
+            if remaining is not None and done_count >= remaining:
+                break
             folder = channel["folder"]
             if already_done(day, folder, video_name):
                 print(f"skip  {folder} / {video_name} (already edited)")
@@ -711,10 +721,13 @@ def edit_day(day: str, channels: list[dict], defaults: dict, hooks_by_category: 
             touch_key(manifest_key, json.dumps(manifest, indent=2).encode("utf-8"))
             mark_done(day, folder, video_name)
             os.remove(out_local)
+            done_count += 1
             print(f"done  -> {out_key}")
 
         if local_raw and os.path.exists(local_raw):
             os.remove(local_raw)
+
+    return done_count
 
 
 def load_channels_t2() -> list[dict]:
@@ -726,12 +739,22 @@ def load_channels_t2() -> list[dict]:
         return json.load(f)
 
 
-def run(day: str | None = None) -> None:
-    """Edit all not-yet-edited raw videos, for every T2 channel."""
+def run(day: str | None = None, limit: int | None = None) -> None:
+    """Edit not-yet-edited raw videos, for every T2 channel.
+
+    `limit` caps how many (video, channel) edits this call performs -- useful
+    for a small test batch before letting a run touch everything pending.
+    Falls back to the T2_MAX_EDITS env var when not passed explicitly (so
+    run_pipeline_t2.py's edit_all_pending() can be capped without code changes).
+    """
     channels = load_channels_t2()
     if not channels:
         print("No channels configured in channels_t2.json. Nothing to do.")
         return
+
+    if limit is None:
+        env_limit = os.environ.get("T2_MAX_EDITS")
+        limit = int(env_limit) if env_limit else None
 
     defaults = load_default_config()
     hooks_by_category = load_hooks()
@@ -741,16 +764,23 @@ def run(day: str | None = None) -> None:
         print("No raw videos found. Nothing to do.")
         return
 
+    remaining = limit
     with tempfile.TemporaryDirectory() as tmp:
         for d in days:
-            edit_day(d, channels, defaults, hooks_by_category, tmp)
+            if remaining is not None and remaining <= 0:
+                print(f"Edit limit ({limit}) reached, stopping.")
+                break
+            n = edit_day(d, channels, defaults, hooks_by_category, tmp, remaining)
+            if remaining is not None:
+                remaining -= n
 
     print("Edit pass finished.")
 
 
 def main() -> None:
     day = sys.argv[1] if len(sys.argv) > 1 else None
-    run(day)
+    limit = int(sys.argv[2]) if len(sys.argv) > 2 else None
+    run(day, limit)
 
 
 if __name__ == "__main__":
